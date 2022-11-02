@@ -15,8 +15,7 @@ required-features = ["clap"]
 
 [dependencies]
 color_quant = "1.1.0"
-
-tifiles = { path = "../tinterp-rs/tifiles" }
+tifiles = "0.1"
 
 clap = { version = "4.0.18", optional = true }
 

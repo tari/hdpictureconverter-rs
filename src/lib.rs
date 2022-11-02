@@ -251,7 +251,7 @@ impl<'a> Iterator for Tiles<'a> {
 /// and 6 in green. The LSb of green is placed at bit 15, followed on downward by red, green and
 /// blue.
 ///
-/// ```
+/// ```text
 ///  ┌──────────────────────────────┐
 ///  │ ┌────────────┐ ┌────────────┐▼┌────────────┐
 ///  │ │            │ │            │ │            │

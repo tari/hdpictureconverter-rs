@@ -385,6 +385,8 @@ dependencies = [
 [[package]]
 name = "tifiles"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "190fd02328eed5411c31e6c7fe00d3768b46c3c2f6f12db313f269cc515b0baf"
 dependencies = [
  "num_enum",
  "thiserror",
