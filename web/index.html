@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>HD Picture converter</title>
+
+        <!-- TODO don't use an external CDN for these -->
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.4.1/dist/css/bootstrap.min.css" integrity="sha384-HSMxcRTRxnN+Bdg0JdbxYKrThecOKuH5zCYotlSAcp1+c8xmyTe9GYg1l9a69psu" crossorigin="anonymous">
+        <script src="https://code.jquery.com/jquery-1.12.4.min.js" integrity="sha384-nvAa0+6Qg9clwYCGGPpDQLVpLNn0fRaROjHqs13t4Ggj3Ez50XnGQqc/r8MhnRDZ" crossorigin="anonymous"></script>
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.4.1/dist/js/bootstrap.min.js" integrity="sha384-aJ21OjlMXNL5UyIl/XNwTMqvzeRMZH2w8c5cRVpzpU8Y5bApTppSuUkhZXN0VxHd" crossorigin="anonymous"></script>
+    </head>
+
+    <body>
+        <div class="container">
+            <div class="jumbotron">
+                <h1>HD Picture converter</h1>
+                <p>Converts images to the format used by TheLastMillenial's 
+                <a href="https://github.com/TheLastMillennial/HD-Picture-Viewer/tree/master/Releases/Alpha%202.0.0">HD
+                    Picture Viewer</a> on TI-84 Plus CE and TI-83 Premium CE calculators.</p>
+            </div>
+
+            <div class="row" style="/*display: flex*/">
+                <div class="col-xs-12 col-sm-12 col-md-4 bg-info">
+                    <h2>How to use</h2>
+                    <ol>
+                        <li>Press the button to choose an image file, or drag and drop an image file</li>
+                        <li>Press the convert button</li>
+                        <li>Wait while your image is processed</li>
+                        <li>Press the download button when complete to save a ZIP file containing appvars to be sent to your calculator</li>
+                    </ol>
+                </div>
+                <div class="col-xs-12 col-sm-6 col-md-4">
+                    <h2>Picture input</h2>
+                    <form id="inputsForm">
+                        <div class="form-group">
+                            <input type="file" required id="imageInput" accept="image/*" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="varPrefixInput">Appvar name prefix:</label>
+                            <input id="varPrefixInput" type="text" required pattern="[A-Z]{2}" placeholder="AA">
+                            <p><small>This should be unique among images stored on the calculator, and must be
+                               exactly two letters.</small></p>
+                        </div>
+                        <div class="form-group">
+                            <label for="quantizerQualityInput">Color quality:</label>
+                            <input id="quantizerQualityInput" type="range" min=1 max=30 value=20>
+                            <p><small>Higher quality takes more time to convert but might look better.</small></p>
+                        </div>
+                        <div class="form-group">
+                            <input type="submit" id="submit-image" value="Convert!"
+                                   disabled class="form-control input-lg btn-primary">
+                        </div>
+                    </form>
+                </div>
+                <div class="col-xs-12 col-sm-6 col-md-4">
+                    <img id="preview" alt="Your chosen image will be shown here"
+                         class="img-responsive img-thumbnail center-block">
+                </div>
+            </div>
+            <div>
+                <h2>About</h2>
+                <p>TODO: fill this in.</p>
+            </div>
+        </div>
+
+        <div id="statusModal" class="modal" tabindex="-1" role="dialog" aria-labelledby="statusModalTitle">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3 class="modal-title" id="statusModalTitle">Converting picture</h3>
+                    </div>
+                    <div class="modal-body lead" id="results">
+                        <div class="text-center" id="conversionText">
+                        </div>
+                        <progress style="width: 100%; height: 3em;" id="conversionProgress">
+                    </div>
+                    <div class="modal-footer">
+                        <a id="downloadZipLink" download class="hidden"></a>
+                        <button id="downloadZipButton" type="button" class="btn btn-primary" disabled>Save zip</button>
+                        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script src='./pkg/hdpictureconverter_web.js'></script>
+        <script>
+            let worker_ready = false;
+
+            const form = document.getElementById('inputsForm');
+            const imageInput = document.getElementById('imageInput');
+            const varPrefixInput = document.getElementById('varPrefixInput');
+            const quantizerQualityInput = document.getElementById('quantizerQualityInput');
+            const submit = document.getElementById('submit-image');
+
+            const results = document.getElementById('results');
+            const downloadZipButton = document.getElementById('downloadZipButton');
+            const downloadZipLink = document.getElementById('downloadZipLink');
+
+            function showProgress(label, percent) {
+                const text = document.getElementById('conversionText');
+                const progress = document.getElementById('conversionProgress');
+
+                if (percent !== undefined) {
+                    progress.value = percent;
+                } else {
+                    // Make it indeterminate
+                    progress.removeAttribute('value');
+                }
+                text.textContent = label;
+            }
+
+            function updateReadiness() {
+                submit.disabled = !worker_ready;
+            }
+
+            form.onsubmit = async (e) => {
+                // Browser validation ensures this is okay since we handle submit
+                e.preventDefault();
+
+                $('#statusModal').modal({ keyboard: false });
+                showProgress('Loading image');
+
+                let file = imageInput.files[0];
+                let image_data = await file.arrayBuffer();
+                // This slider is expressed as higher-is-better but the underlying
+                // quantizer uses lower-is-better so invert it
+                let quantizer_quality = (
+                    Number.parseInt(quantizerQualityInput.max)
+                    - quantizerQualityInput.valueAsNumber
+                    + Number.parseInt(quantizerQualityInput.min)
+                );
+                worker.postMessage({
+                    image_data: new Uint8Array(image_data),
+                    image_name: file.name,
+                    var_prefix: varPrefixInput.value,
+                    quantizer_quality,
+                });
+                console.log('Sent', image_data.byteLength, 'bytes to process');
+            };
+
+            const preview = document.getElementById('preview');
+            preview.onload = () => {
+                URL.revokeObjectURL(preview.src);
+            };
+
+            imageInput.oninput = () => {
+                updateReadiness();
+                if (imageInput.files.length == 0) {
+                    preview.src = null;
+                } else {
+                    preview.src = URL.createObjectURL(imageInput.files[0]);
+                }
+            };
+
+            const worker = new Worker('worker.js');
+            worker.onmessage = (e) => {
+                worker_ready = !!e.data.ready;
+                updateReadiness();
+
+                console.log('Received message from worker', e.data);
+                if (e.data.error) {
+                    results.replaceChildren(
+                        document.createTextNode('Failed: ' + e.data.error),
+                    );
+                } else if (e.data.progress) {
+                    const {kind, percent} = e.data.progress;
+                    showProgress(kind, percent);
+                } else if (e.data.zip) {
+                    const {data, name} = e.data.zip;
+
+                    $(downloadZipButton).one('click', () => {
+                        downloadZipLink.href = URL.createObjectURL(new Blob([data]));
+                        downloadZipLink.download = name + '.zip'
+                        downloadZipLink.click();
+                        // click won't run synchronously, so let the event loop turn then
+                        // we can safely revoke the data URL
+                        setTimeout(() => {
+                            downloadZipButton.disabled = true;
+                            URL.revokeObjectURL(downloadZipLink.href);
+                        }, 0);
+                    });
+                    downloadZipButton.disabled = false;
+                    showProgress('Conversion complete!', 1);
+                }
+            };
+        </script>
+    </body>
+</html>

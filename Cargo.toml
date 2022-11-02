@@ -1,0 +1,27 @@
+[package]
+name = "hdpictureconverter"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+members = ["web"]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "cli"
+required-features = ["clap"]
+
+[dependencies]
+color_quant = "1.1.0"
+
+tifiles = { path = "../tinterp-rs/tifiles" }
+
+clap = { version = "4.0.18", optional = true }
+
+[dependencies.image]
+version = "0.24.4"
+default-features = false
+features = ["gif", "jpeg", "ico", "png", "tiff", "webp", "bmp"]
+
