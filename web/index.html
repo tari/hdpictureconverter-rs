@@ -151,13 +151,43 @@
                 URL.revokeObjectURL(preview.src);
             };
 
-            imageInput.oninput = () => {
+            function imageChanged() {
                 updateReadiness();
                 if (imageInput.files.length == 0) {
                     preview.src = null;
                 } else {
                     preview.src = URL.createObjectURL(imageInput.files[0]);
                 }
+            }
+            imageInput.onchange = imageChanged;
+
+            function showDragActive(active) {
+                let f;
+                if (active) {
+                    f = imageInput.classList.add("bg-info");
+                } else {
+                    f = imageInput.classList.remove("bg-info");
+                }
+            }
+            document.ondragenter = e => {
+                if (e.dataTransfer.files) {
+                    e.dataTransfer.dropEffect = "copy";
+                    showDragActive(true);
+                }
+            };
+            document.ondragover = e => {
+                e.preventDefault();
+            };
+            document.ondrop = e => {
+                e.preventDefault();
+                showDragActive(false);
+                if (e.dataTransfer.files) {
+                    imageInput.files = e.dataTransfer.files;
+                    imageChanged();
+                }
+            };
+            document.ondragend = document.ondragexit = e => {
+                showDragActive(false);
             };
 
             const worker = new Worker('worker.js');
