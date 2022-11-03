@@ -3,7 +3,7 @@ use std::io::{Result as IoResult, Seek};
 use std::iter::repeat;
 
 use color_quant::NeuQuant;
-use image::{GenericImageView, Pixel, Rgba, RgbaImage, SubImage};
+use image::{GenericImageView, Rgba, RgbaImage, SubImage};
 use tifiles::VariableType;
 
 pub struct Image {
@@ -44,8 +44,8 @@ impl Image {
             Rgba([0u8, 0, 0, 255]),
         );
 
-        // Paste the loaded image onto the black canvas, also blending down so we know we're fully
-        // opaque.
+        // Paste the loaded image onto the black canvas, which also blends down so we know
+        // we're fully opaque.
         image::imageops::overlay(&mut image, &loaded_image, 0, 0);
         assert_eq!(
             image.height() % Self::TILE_SIZE,
@@ -72,20 +72,31 @@ impl Image {
         })
     }
 
+    /// Compute the palette for the loaded image.
+    ///
+    /// This stage can take a long time at high quality settings.
     pub fn quantize(&mut self) {
-        // Check that this is actually contiguous RGBA8, because the quantizer expects that format.
-        let layout = self.input.sample_layout();
-        assert_eq!(layout.channels, 4);
-        assert_eq!(layout.channel_stride, 1);
-        assert_eq!(layout.width_stride, 4);
-        assert_eq!(
-            layout.height_stride as u32,
-            layout.width * layout.width_stride as u32
+        let mut rgba_samples = Vec::<u8>::with_capacity(
+            self.input.width() as usize * self.input.height() as usize * 4,
         );
 
-        // This is suboptimal since we have fixed entries; avoid even feeding the quantizer
-        // pixels corresponding to fixed palette entries.
-        self.quantizer.init(self.input.as_flat_samples().as_slice());
+        for row in self.input.rows() {
+            rgba_samples.extend(
+                row.filter_map(|px| {
+                    // Ignore black and white since those are hard-coded in the palette;
+                    // pass the rest through as RGBA to feed to the quantizer.
+                    match px.0 {
+                        [0, 0, 0, _] | [255, 255, 255, _] => None,
+                        rgba => Some(rgba),
+                    }
+                })
+                .flatten(),
+            );
+        }
+        // Quantizer consumes contiguous RGBA pixels, unfortunately requiring us to
+        // make a copy of the image minus the black and white pixels and preventing
+        // any progress feedback from this.
+        self.quantizer.init(&rgba_samples);
     }
 
     /// Return an iterator over image [`Tile`]s.
@@ -158,6 +169,7 @@ impl Image {
     }
 }
 
+/// Iterator over tiles in an image.
 pub struct Tiles<'a> {
     full: &'a Image,
     next: (u32, u32),
@@ -184,20 +196,20 @@ impl<'a> Tile<'a> {
         // Image dimensions, always the tile size
         writer.write_all(&[self.content.width() as u8, self.content.height() as u8])?;
 
-        // Paletteized pixel data follows, one byte per pixel
+        // Paletteized pixel data follows, row-major one byte per pixel
         for y in 0..self.content.height() {
             for x in 0..self.content.width() {
                 let color = self.content.get_pixel(x, y);
 
                 // Palette index 0 and 255 are hard-coded
-                let palette_index = if let &[0, 0, 0, _] = color.channels() {
+                let palette_index = if let [0, 0, 0, _] = color.0 {
                     0
-                } else if let &[255, 255, 255, _] = color.channels() {
+                } else if let [255, 255, 255, _] = color.0 {
                     255
                 } else {
                     // The quantizer is told to generate 254 colors because of the hard-coded
                     // entries, so add one so its output starts at 1.
-                    1 + self.full.quantizer.index_of(color.channels())
+                    1 + self.full.quantizer.index_of(&color.0)
                 };
 
                 debug_assert!((0..=255).contains(&palette_index));

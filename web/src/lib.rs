@@ -83,7 +83,8 @@ impl Converter {
                 now.get_hours() as u8,
                 now.get_minutes() as u8,
                 now.get_seconds() as u8,
-            ).map_err(|_| "Now doesn't seem to be a valid time")?,
+            )
+            .map_err(|_| "Now doesn't seem to be a valid time")?,
         );
 
         // Dump tiles to appvars
@@ -101,7 +102,9 @@ impl Converter {
         }
 
         // Dump palette to appvar
-        let palette_data = im.write_palette_appvar(Cursor::new(Vec::new()))?.into_inner();
+        let palette_data = im
+            .write_palette_appvar(Cursor::new(Vec::new()))?
+            .into_inner();
         zip.start_file(format!("{}.8xv", im.palette_appvar_name()), zip_options)?;
         zip.write_all(&palette_data)?;
 
@@ -112,4 +115,3 @@ impl Converter {
         })
     }
 }
-
