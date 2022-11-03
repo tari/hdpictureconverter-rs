@@ -27,6 +27,12 @@ function updateReadiness() {
     submit.disabled = !worker_ready;
 }
 
+/*
+ * Handle the "Convert!" button by bundling up inputs and parameters
+ * to the worker to actually process.
+ *
+ * We'll get a message back when it's done, handled in worker.onmessage
+ */
 form.onsubmit = async (e) => {
     // Browser validation ensures this is okay since we handle submit
     e.preventDefault();
@@ -52,8 +58,10 @@ form.onsubmit = async (e) => {
     console.log('Sent', image_data.byteLength, 'bytes to process');
 };
 
+/* Display the image selected in the form */
 const preview = document.getElementById('preview');
 preview.onload = () => {
+    // Save memory by revoking the URL as soon as it's loaded
     URL.revokeObjectURL(preview.src);
 };
 
@@ -67,8 +75,10 @@ function imageChanged() {
 }
 imageInput.onchange = imageChanged;
 
+/* Handle drag+drop of image files */
 function showDragActive(active) {
     let f;
+    // Highlight the file input when drag is active
     if (active) {
         f = imageInput.classList.add("bg-info");
     } else {
@@ -82,6 +92,7 @@ document.ondragenter = e => {
     }
 };
 document.ondragover = e => {
+    // Required to prevent default handling of drop as well
     e.preventDefault();
 };
 document.ondrop = e => {
@@ -96,20 +107,24 @@ document.ondragend = document.ondragexit = e => {
     showDragActive(false);
 };
 
+/* Spawn the dedicated worker which actually runs the wasm app */
 const worker = new Worker('worker.js');
 worker.onmessage = (e) => {
+    // Worker is only ready immediately after it sends a ready message;
+    // anything else means it's busy.
     worker_ready = !!e.data.ready;
     updateReadiness();
 
     console.log('Received message from worker', e.data);
     if (e.data.error) {
-        results.replaceChildren(
-            document.createTextNode('Failed: ' + e.data.error),
-        );
+        // Worker couldn't finish conversion for some reason
+        showProgress('Failed: ' + e.data.error, 0);
     } else if (e.data.progress) {
+        // Worker is reporting its ongoing progress
         const {kind, percent} = e.data.progress;
         showProgress(kind, percent);
     } else if (e.data.zip) {
+        // Sent back results of conversion
         const {data, name} = e.data.zip;
 
         $(downloadZipButton).one('click', () => {
@@ -117,7 +132,7 @@ worker.onmessage = (e) => {
             downloadZipLink.download = name + '.zip'
             downloadZipLink.click();
             // click won't run synchronously, so let the event loop turn then
-            // we can safely revoke the data URL
+            // we can safely revoke the data URL to free the memory
             setTimeout(() => {
                 downloadZipButton.disabled = true;
                 URL.revokeObjectURL(downloadZipLink.href);
