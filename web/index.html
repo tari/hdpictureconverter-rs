@@ -6,9 +6,12 @@
         <title>HD Picture converter</title>
 
         <!-- TODO don't use an external CDN for these -->
-	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css" integrity="sha384-xOolHFLEh07PJGoPkLv1IbcEPTNtaed2xpHsD9ESMhqIYd0nLMwNLD69Npy4HI+N" crossorigin="anonymous">
-	<script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
-	<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-Fy6S3B9q64WdZWQUiU+q4/2Lc9npb8tCaSX9FK7E8HnRr0Jz8D6OP9dO5Vg3Q9ct" crossorigin="anonymous"></script>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css" integrity="sha384-xOolHFLEh07PJGoPkLv1IbcEPTNtaed2xpHsD9ESMhqIYd0nLMwNLD69Npy4HI+N" crossorigin="anonymous">
+        <script defer src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
+        <script defer src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-Fy6S3B9q64WdZWQUiU+q4/2Lc9npb8tCaSX9FK7E8HnRr0Jz8D6OP9dO5Vg3Q9ct" crossorigin="anonymous"></script>
+
+        <script defer src='./pkg/hdpictureconverter_web.js'></script>
+        <script defer src='./index.js'></script>
     </head>
 
     <body>
@@ -24,10 +27,11 @@
                 <div class="col-md-12 col-lg-4 bg-info text-light rounded d-flex flex-column justify-content-center">
                     <h2>How to use</h2>
                     <ol>
-                        <li>Press the button to choose an image file, or drag and drop an image file</li>
+                        <li>Choose an image file in the form, or drag and drop an image file</li>
+                        <li>Specify a name for the output</li>
                         <li>Press the convert button</li>
                         <li>Wait while your image is processed</li>
-                        <li>Press the download button when complete to save a ZIP file containing appvars to be sent to your calculator</li>
+                        <li>Press the save button when complete to save a ZIP file containing appvars to be sent to your calculator</li>
                     </ol>
                 </div>
                 <div class="col-sm-12 col-md-6 col-lg-4">
@@ -90,137 +94,5 @@
             </div>
         </div>
 
-        <script src='./pkg/hdpictureconverter_web.js'></script>
-        <script>
-            let worker_ready = false;
-
-            const form = document.getElementById('inputsForm');
-            const imageInput = document.getElementById('imageInput');
-            const varPrefixInput = document.getElementById('varPrefixInput');
-            const quantizerQualityInput = document.getElementById('quantizerQualityInput');
-            const submit = document.getElementById('submit-image');
-
-            const results = document.getElementById('results');
-            const downloadZipButton = document.getElementById('downloadZipButton');
-            const downloadZipLink = document.getElementById('downloadZipLink');
-
-            function showProgress(label, percent) {
-                const text = document.getElementById('conversionText');
-                const progress = document.getElementById('conversionProgress');
-
-                if (percent !== undefined) {
-                    progress.value = percent;
-                } else {
-                    // Make it indeterminate
-                    progress.removeAttribute('value');
-                }
-                text.textContent = label;
-            }
-
-            function updateReadiness() {
-                submit.disabled = !worker_ready;
-            }
-
-            form.onsubmit = async (e) => {
-                // Browser validation ensures this is okay since we handle submit
-                e.preventDefault();
-
-                $('#statusModal').modal({ keyboard: false });
-                showProgress('Loading image');
-
-                let file = imageInput.files[0];
-                let image_data = await file.arrayBuffer();
-                // This slider is expressed as higher-is-better but the underlying
-                // quantizer uses lower-is-better so invert it
-                let quantizer_quality = (
-                    Number.parseInt(quantizerQualityInput.max)
-                    - quantizerQualityInput.valueAsNumber
-                    + Number.parseInt(quantizerQualityInput.min)
-                );
-                worker.postMessage({
-                    image_data: new Uint8Array(image_data),
-                    image_name: file.name,
-                    var_prefix: varPrefixInput.value,
-                    quantizer_quality,
-                });
-                console.log('Sent', image_data.byteLength, 'bytes to process');
-            };
-
-            const preview = document.getElementById('preview');
-            preview.onload = () => {
-                URL.revokeObjectURL(preview.src);
-            };
-
-            function imageChanged() {
-                updateReadiness();
-                if (imageInput.files.length == 0) {
-                    preview.src = null;
-                } else {
-                    preview.src = URL.createObjectURL(imageInput.files[0]);
-                }
-            }
-            imageInput.onchange = imageChanged;
-
-            function showDragActive(active) {
-                let f;
-                if (active) {
-                    f = imageInput.classList.add("bg-info");
-                } else {
-                    f = imageInput.classList.remove("bg-info");
-                }
-            }
-            document.ondragenter = e => {
-                if (e.dataTransfer.files) {
-                    e.dataTransfer.dropEffect = "copy";
-                    showDragActive(true);
-                }
-            };
-            document.ondragover = e => {
-                e.preventDefault();
-            };
-            document.ondrop = e => {
-                e.preventDefault();
-                showDragActive(false);
-                if (e.dataTransfer.files) {
-                    imageInput.files = e.dataTransfer.files;
-                    imageChanged();
-                }
-            };
-            document.ondragend = document.ondragexit = e => {
-                showDragActive(false);
-            };
-
-            const worker = new Worker('worker.js');
-            worker.onmessage = (e) => {
-                worker_ready = !!e.data.ready;
-                updateReadiness();
-
-                console.log('Received message from worker', e.data);
-                if (e.data.error) {
-                    results.replaceChildren(
-                        document.createTextNode('Failed: ' + e.data.error),
-                    );
-                } else if (e.data.progress) {
-                    const {kind, percent} = e.data.progress;
-                    showProgress(kind, percent);
-                } else if (e.data.zip) {
-                    const {data, name} = e.data.zip;
-
-                    $(downloadZipButton).one('click', () => {
-                        downloadZipLink.href = URL.createObjectURL(new Blob([data]));
-                        downloadZipLink.download = name + '.zip'
-                        downloadZipLink.click();
-                        // click won't run synchronously, so let the event loop turn then
-                        // we can safely revoke the data URL
-                        setTimeout(() => {
-                            downloadZipButton.disabled = true;
-                            URL.revokeObjectURL(downloadZipLink.href);
-                        }, 0);
-                    });
-                    downloadZipButton.disabled = false;
-                    showProgress('Conversion complete!', 1);
-                }
-            };
-        </script>
     </body>
 </html>
