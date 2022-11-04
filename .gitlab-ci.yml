@@ -38,8 +38,6 @@ pages:
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   needs: ["build:web"]
-  variables:
-    GIT_STRATEGY: none
   script: ./generate-worker-manifest.sh public
   artifacts:
     paths:
