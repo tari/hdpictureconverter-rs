@@ -142,3 +142,8 @@ worker.onmessage = (e) => {
         showProgress('Conversion complete!', 1);
     }
 };
+
+/* Install a service worker if supported, so we're installable and work offline */
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('serviceworker.js');
+}

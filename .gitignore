@@ -1,1 +1,4 @@
+# cargo outputs
 /target
+# webapp document root
+/public
