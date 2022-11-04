@@ -4,7 +4,7 @@ const form = document.getElementById('inputsForm');
 const imageInput = document.getElementById('imageInput');
 const varPrefixInput = document.getElementById('varPrefixInput');
 const quantizerQualityInput = document.getElementById('quantizerQualityInput');
-const submit = document.getElementById('submit-image');
+const submit = document.getElementById('submitButton');
 
 const results = document.getElementById('results');
 const downloadZipButton = document.getElementById('downloadZipButton');
@@ -25,6 +25,7 @@ function showProgress(label, percent) {
 
 function updateReadiness() {
     submit.disabled = !worker_ready;
+    submit.value = submit.disabled ? 'Not ready yet..' : 'Convert!';
 }
 
 /*
