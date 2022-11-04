@@ -1,0 +1,46 @@
+image: rust
+variables:
+  # Put cargo files in the project dir so they can be cached,
+  # including `cargo install`ed binaries and registry state
+  CARGO_HOME: "$CI_PROJECT_DIR/.cargo"
+
+build:web:
+  stage: build
+  cache:
+    key: $CI_JOB_NAME
+    paths:
+      - .cargo/
+      - target/
+  before_script:
+    # Should do nothing if already up to date
+    - cargo install wasm-pack
+  script:
+    - $CARGO_HOME/bin/wasm-pack build --target no-modules web
+    - cp -av web/public ./
+    - mv ./web/pkg ./public/pkg
+  artifacts:
+    paths:
+      - public
+
+test:
+  stage: test
+  needs: []
+  cache:
+    key: $CI_JOB_NAME
+    paths:
+      - .cargo/
+      - target/
+  script:
+    - cargo test -v
+
+pages:
+  stage: deploy
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  needs: ["build:web"]
+  variables:
+    GIT_STRATEGY: none
+  script: ./generate-worker-manifest.sh public
+  artifacts:
+    paths:
+      - public
