@@ -3,7 +3,9 @@
  * entire app on worker install (so it works offline immediately). */
 importScripts('worker-cache-manifest.js');
 
-if (typeof cacheName !== 'undefined' && typeof cacheFiles !== 'undefined') {
+if (typeof cachePrefix !== 'undefined'
+    && typeof cacheName !== 'undefined'
+    && typeof cacheFiles !== 'undefined') {
     /* Cache things from worker-cache-manifest.js on install */
     self.addEventListener('install', e => {
         e.waitUntil(async () => {
@@ -31,7 +33,7 @@ if (typeof cacheName !== 'undefined' && typeof cacheFiles !== 'undefined') {
 
     /* Clean up stale caches on update */
     self.addEventListener('activate', e => {
-        e.waitUntil(async () => {
+        async function pruneObsoleteCaches() {
             let pruneCaches = [];
             for (const key of await caches.keys()) {
                 // Ignore the current version and caches with different prefixes
@@ -43,9 +45,10 @@ if (typeof cacheName !== 'undefined' && typeof cacheFiles !== 'undefined') {
                 pruneCaches.push(caches.delete(key));
             }
             await Promise.all(pruneCaches);
-        })
+        }
+        e.waitUntil(pruneObsoleteCaches());
     });
 } else {
-    console.log('Worker cache manifest not configured; not installing service worker');
+    console.log('Worker cache manifest not configured; not caching data');
 }
 
