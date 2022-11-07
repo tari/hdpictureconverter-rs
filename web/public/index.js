@@ -38,7 +38,7 @@ form.onsubmit = async (e) => {
     // Browser validation ensures this is okay since we handle submit
     e.preventDefault();
 
-    $('#statusModal').modal({ keyboard: false });
+    $('#statusModal').modal({keyboard: false});
     showProgress('Loading image');
 
     let file = imageInput.files[0];
@@ -74,6 +74,7 @@ function imageChanged() {
         preview.src = URL.createObjectURL(imageInput.files[0]);
     }
 }
+
 imageInput.onchange = imageChanged;
 
 /* Handle drag+drop of image files */
@@ -86,6 +87,7 @@ function showDragActive(active) {
         f = imageInput.classList.remove("bg-info");
     }
 }
+
 document.ondragenter = e => {
     if (e.dataTransfer.files) {
         e.dataTransfer.dropEffect = "copy";
@@ -146,5 +148,42 @@ worker.onmessage = (e) => {
 
 /* Install a service worker if supported, so we're installable and work offline */
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('serviceworker.js');
+    navigator.serviceWorker.register('serviceworker.js').then(reg => {
+        // All this to handle prompting for updates..
+        function listenForWaitingServiceWorker(reg, callback) {
+            function awaitStateChange() {
+                reg.installing.addEventListener('statechange', function () {
+                    if (this.state === 'installed') callback(reg);
+                });
+            }
+
+            if (!reg) return;
+            if (reg.waiting) return callback(reg);
+            if (reg.installing) awaitStateChange();
+            reg.addEventListener('updatefound', awaitStateChange);
+        }
+
+        // reload once when the new Service Worker starts activating
+        var refreshing;
+        navigator.serviceWorker.addEventListener('controllerchange', function () {
+                if (refreshing) {
+                    return;
+                }
+                refreshing = true;
+                window.location.reload();
+            }
+        );
+
+        function promptUserToRefresh(reg) {
+            document.getElementById('updateAppButton').addEventListener('click', () => {
+                reg.waiting.postMessage('skipWaiting');
+            });
+            document.getElementById('hideToastButton').addEventListener('click', () => {
+                $('#updateToast').toast('hide');
+            });
+            $('#updateToast').toast('show');
+        }
+
+        listenForWaitingServiceWorker(reg, promptUserToRefresh);
+    })
 }

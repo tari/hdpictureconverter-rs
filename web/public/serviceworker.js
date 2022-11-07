@@ -28,6 +28,7 @@ if (typeof cachePrefix !== 'undefined'
             cache.put(e.request, response.clone());
             return response;
         }
+
         e.respondWith(handleRequest());
     });
 
@@ -46,9 +47,14 @@ if (typeof cachePrefix !== 'undefined'
             }
             await Promise.all(pruneCaches);
         }
+
         e.waitUntil(pruneObsoleteCaches());
     });
 } else {
     console.log('Worker cache manifest not configured; not caching data');
 }
 
+self.addEventListener('message', messageEvent => {
+    if (messageEvent.data === 'skipWaiting')
+        return self.skipWaiting();
+});

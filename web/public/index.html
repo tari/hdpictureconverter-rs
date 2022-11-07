@@ -113,7 +113,7 @@
                     <div class="modal-body lead" id="results">
                         <div class="text-center" id="conversionText">
                         </div>
-                        <progress style="width: 100%; height: 3em;" id="conversionProgress">
+                        <progress style="width: 100%; height: 3em;" id="conversionProgress"></progress>
                     </div>
                     <div class="modal-footer">
                         <a id="downloadZipLink" download class="hidden"></a>
@@ -124,5 +124,14 @@
             </div>
         </div>
 
+        <div id="updateToast" class="toast p-3" role="alert"
+             style="position: fixed; bottom: 10px; left: 50%; transform: translate(-50%, 0);"
+             aria-live="assertive" aria-atomic="true" data-autohide="false">
+            <div>An update is available: refresh to update.</div>
+            <div class="d-flex justify-content-between mt-1">
+                <button id="hideToastButton" class="btn btn-secondary">Ignore</button>
+                <button id="updateAppButton" class="btn btn-danger">Update now</button>
+            </div>
+        </div>
     </body>
 </html>
