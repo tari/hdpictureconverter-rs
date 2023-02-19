@@ -1,7 +1,9 @@
 use std::io::BufReader;
 use std::path::PathBuf;
 
+use clap::builder::PossibleValue;
 use clap::{Arg, Command};
+
 use hdpictureconverter::Image;
 
 fn var_prefix_str(s: &str) -> Result<String, String> {
@@ -25,9 +27,26 @@ fn var_prefix_str(s: &str) -> Result<String, String> {
     Ok(s.into())
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    use clap::builder::TypedValueParser;
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+enum QuantizerChoice {
+    LibImageQuant,
+    NeuQuant,
+}
 
+impl clap::ValueEnum for QuantizerChoice {
+    fn value_variants<'a>() -> &'a [Self] {
+        &[Self::LibImageQuant, Self::NeuQuant]
+    }
+
+    fn to_possible_value(&self) -> Option<PossibleValue> {
+        match self {
+            Self::LibImageQuant => Some(PossibleValue::new("imagequant")),
+            Self::NeuQuant => Some(PossibleValue::new("neuquant")),
+        }
+    }
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let m = Command::new("HD picture converter")
         .args([
             Arg::new("image_file")
@@ -42,6 +61,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .default_value(".")
                 .value_parser(clap::value_parser!(PathBuf))
                 .help("Write 8xv files to this directory"),
+            Arg::new("quantizer")
+                .short('z')
+                .long("quantizer")
+                .value_parser(clap::value_parser!(QuantizerChoice))
+                .default_value("imagequant")
+                .help("Select quantization algorithm"),
             Arg::new("quantizer_quality")
                 .short('q')
                 .long("quality")
@@ -54,7 +79,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let image_file = m.get_one::<PathBuf>("image_file").unwrap();
     let var_prefix = m.get_one::<String>("var_prefix").unwrap();
     let out_dir = m.get_one::<PathBuf>("out_dir").unwrap();
-    let quantizer_quality = *m.get_one::<i64>("quantizer_quality").unwrap();
+    let quantizer = match m.get_one::<QuantizerChoice>("quantizer").unwrap() {
+        QuantizerChoice::LibImageQuant => hdpictureconverter::QuantizerOption::Imagequant,
+        QuantizerChoice::NeuQuant => hdpictureconverter::QuantizerOption::NeuQuant(
+            *m.get_one::<i64>("quantizer_quality").unwrap() as i32,
+        ),
+    };
 
     let out_path = |filename: &str| -> PathBuf {
         let mut p = out_dir.clone();
@@ -70,7 +100,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             BufReader::new(f),
             &image_file.file_name().unwrap().to_string_lossy(),
             var_prefix,
-            quantizer_quality as i32,
+            quantizer,
         )
     }?;
 

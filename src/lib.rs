@@ -6,9 +6,82 @@ use color_quant::NeuQuant;
 use image::{GenericImageView, Rgba, RgbaImage, SubImage};
 use tifiles::VariableType;
 
+pub enum QuantizerOption {
+    NeuQuant(i32),
+    Imagequant,
+}
+
+enum Quantizer {
+    NeuQuant(NeuQuant),
+    ImageQuant(imagequant::Attributes, Option<imagequant::QuantizationResult>),
+}
+
+impl Quantizer {
+    fn quantize(&mut self, image: &RgbaImage) {
+        match self {
+            Quantizer::NeuQuant(q) => {
+                let mut rgba_samples = Vec::<u8>::with_capacity(
+                    image.width() as usize * image.height() as usize * 4,
+                );
+
+                for row in image.rows() {
+                    rgba_samples.extend(
+                        row.filter_map(|px| {
+                            // Ignore black and white since those are hard-coded in the palette;
+                            // pass the rest through as RGBA to feed to the quantizer.
+                            match px.0 {
+                                [0, 0, 0, _] | [255, 255, 255, _] => None,
+                                rgba => Some(rgba),
+                            }
+                        })
+                            .flatten(),
+                    );
+                }
+                // Quantizer consumes contiguous RGBA pixels, unfortunately requiring us to
+                // make a copy of the image minus the black and white pixels and preventing
+                // any progress feedback from this.
+                q.init(&rgba_samples);
+            }
+            Quantizer::ImageQuant(attrs, result) => {
+                use rgb::FromSlice;
+
+                let mut image = imagequant::Image::new_borrowed(
+                    attrs,
+                    image.as_rgba(),
+                    image.width() as usize,
+                    image.height() as usize,
+                    0.,
+                ).unwrap();
+                *result = Some(attrs.quantize(&mut image).unwrap());
+            }
+        }
+    }
+}
+
+impl From<QuantizerOption> for Quantizer {
+    fn from(opt: QuantizerOption) -> Self {
+        match opt {
+            QuantizerOption::NeuQuant(q) => Quantizer::NeuQuant(NeuQuant::new(q, 254, &[])),
+            QuantizerOption::Imagequant => {
+                let mut attrs = imagequant::Attributes::new();
+                attrs.set_max_colors(256).unwrap();
+
+                let mut histogram = imagequant::Histogram::new(&attrs);
+                histogram
+                    .add_fixed_color(imagequant::RGBA::new(0, 0, 0, 255), 0f64)
+                    .unwrap();
+                histogram
+                    .add_fixed_color(imagequant::RGBA::new(255, 255, 255, 255), 0f64)
+                    .unwrap();
+                Quantizer::ImageQuant(attrs, imagequant::Histogram::new(&attrs))
+            }
+        }
+    }
+}
+
 pub struct Image {
     input: RgbaImage,
-    quantizer: NeuQuant,
+    quantizer: Quantizer,
     var_prefix: String,
     name: String,
 }
@@ -25,7 +98,7 @@ impl Image {
         data: R,
         name: &str,
         var_prefix: &str,
-        quantizer_quality: i32,
+        quantizer: QuantizerOption,
     ) -> IoResult<Self> {
         let loaded_image = match image::io::Reader::new(data).with_guessed_format()?.decode() {
             Ok(i) => i,
@@ -33,7 +106,7 @@ impl Image {
                 return Err(std::io::Error::new(
                     std::io::ErrorKind::Other,
                     format!("Unable to decode image: {}", e),
-                ))
+                ));
             }
         };
 
@@ -60,13 +133,11 @@ impl Image {
             image.width()
         );
 
-        let quantizer = color_quant::NeuQuant::new(quantizer_quality, 254, &[]);
-
         assert_eq!(var_prefix.len(), 2);
 
         Ok(Image {
             input: image,
-            quantizer,
+            quantizer: quantizer.into(),
             name: Self::generate_calc_name(name),
             var_prefix: var_prefix.to_string(),
         })
@@ -76,27 +147,7 @@ impl Image {
     ///
     /// This stage can take a long time at high quality settings.
     pub fn quantize(&mut self) {
-        let mut rgba_samples = Vec::<u8>::with_capacity(
-            self.input.width() as usize * self.input.height() as usize * 4,
-        );
-
-        for row in self.input.rows() {
-            rgba_samples.extend(
-                row.filter_map(|px| {
-                    // Ignore black and white since those are hard-coded in the palette;
-                    // pass the rest through as RGBA to feed to the quantizer.
-                    match px.0 {
-                        [0, 0, 0, _] | [255, 255, 255, _] => None,
-                        rgba => Some(rgba),
-                    }
-                })
-                .flatten(),
-            );
-        }
-        // Quantizer consumes contiguous RGBA pixels, unfortunately requiring us to
-        // make a copy of the image minus the black and white pixels and preventing
-        // any progress feedback from this.
-        self.quantizer.init(&rgba_samples);
+        self.quantizer.quantize(&self.input);
     }
 
     /// Return an iterator over image [`Tile`]s.
