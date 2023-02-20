@@ -129,6 +129,7 @@ dependencies = [
  "color_quant",
  "image",
  "tifiles",
+ "zx0",
 ]
 
 [[package]]
@@ -509,3 +510,9 @@ dependencies = [
  "crossbeam-utils",
  "flate2",
 ]
+
+[[package]]
+name = "zx0"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "01df7a825d645551d63d922e23529331b04c32bec8cc56d95e7c71bdcee28146"
