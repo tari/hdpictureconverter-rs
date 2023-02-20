@@ -21,6 +21,7 @@ tifiles = "0.1"
 
 clap = { version = "4.0.18", optional = true }
 rgb = "0.8.34"
+zx0 = "1.0.0"
 
 [dependencies.image]
 version = "0.24.4"
