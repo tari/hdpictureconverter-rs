@@ -64,15 +64,14 @@ impl Converter {
         };
 
         progress_stage("Decoding image");
-        let mut im = Image::new(
+        let im = Image::new(
             Cursor::new(request.image_data()),
             &request.image_name(),
             &request.var_prefix(),
-            request.quantizer_quality(),
         )?;
 
         progress_stage("Generating palette");
-        im.quantize();
+        let im = im.quantize();
 
         let now = js_sys::Date::new_0();
         let zip_options = zip::write::FileOptions::default().last_modified_time(
