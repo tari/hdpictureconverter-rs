@@ -195,7 +195,7 @@ impl<'a> Iterator for TileRows<'a> {
             return None;
         }
 
-        let row_start = self.tile.index.1 * self.tile.image.width * self.y;
+        let row_start = (self.tile.index.1 * Image::TILE_SIZE + self.y) * self.tile.image.width;
         let row_offset = self.tile.index.0 * Image::TILE_SIZE;
         self.y += 1;
 
