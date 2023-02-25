@@ -210,19 +210,30 @@ impl<'a> Tile<'a> {
     }
 
     pub fn write_appvar<W: Write + Seek>(&self, out: W) -> IoResult<W> {
-        let mut writer = tifiles::Writer::new(out, VariableType::AppVar, &self.appvar_name, true)?;
+        let mut appvar = tifiles::Writer::new(out, VariableType::AppVar, &self.appvar_name, true)?;
+        // Image data buffer so we can compress it
+        let mut imgbuf =
+            Vec::with_capacity(Image::TILE_SIZE as usize * Image::TILE_SIZE as usize + 2);
 
-        // Image signature
-        write!(writer, "HDPICCV4{:8}", &self.image.name)?;
+        // Image signature (not compressed)
+        write!(appvar, "HDPICCV4{:8}", &self.image.name)?;
         // Image dimensions, always the tile size
-        writer.write_all(&[Image::TILE_SIZE as u8, Image::TILE_SIZE as u8])?;
+        imgbuf.write_all(&[Image::TILE_SIZE as u8, Image::TILE_SIZE as u8])?;
 
         // Paletteized pixel data follows, row-major one byte per pixel
         for row in self.rows() {
-            writer.write_all(row)?;
+            imgbuf.write_all(row)?;
         }
+        debug_assert_eq!(
+            imgbuf.capacity(),
+            imgbuf.len(),
+            "Initial buffer capacity was wrong"
+        );
 
-        writer.close()
+        // Then compress and write the compressed data
+        let compressed = zx0::compress(&imgbuf);
+        appvar.write_all(&compressed)?;
+        appvar.close()
     }
 
     pub fn index(&self) -> (u32, u32) {
