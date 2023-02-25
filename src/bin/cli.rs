@@ -61,30 +61,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .default_value(".")
                 .value_parser(clap::value_parser!(PathBuf))
                 .help("Write 8xv files to this directory"),
-            Arg::new("quantizer")
-                .short('z')
-                .long("quantizer")
-                .value_parser(clap::value_parser!(QuantizerChoice))
-                .default_value("imagequant")
-                .help("Select quantization algorithm"),
-            Arg::new("quantizer_quality")
-                .short('q')
-                .long("quality")
-                .value_parser(1..=30)
-                .default_value("10")
-                .help("Set quantizer quality: 1 is best (slowest) and 30 is worst (fastest)"),
         ])
         .get_matches();
 
     let image_file = m.get_one::<PathBuf>("image_file").unwrap();
     let var_prefix = m.get_one::<String>("var_prefix").unwrap();
     let out_dir = m.get_one::<PathBuf>("out_dir").unwrap();
-    let quantizer = match m.get_one::<QuantizerChoice>("quantizer").unwrap() {
-        QuantizerChoice::LibImageQuant => hdpictureconverter::QuantizerOption::Imagequant,
-        QuantizerChoice::NeuQuant => hdpictureconverter::QuantizerOption::NeuQuant(
-            *m.get_one::<i64>("quantizer_quality").unwrap() as i32,
-        ),
-    };
 
     let out_path = |filename: &str| -> PathBuf {
         let mut p = out_dir.clone();
@@ -94,18 +76,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     eprintln!("Opening image file {:?}", &image_file);
-    let mut image = {
+    let image = {
         let f = std::fs::File::open(&image_file)?;
         Image::new(
             BufReader::new(f),
             &image_file.file_name().unwrap().to_string_lossy(),
             var_prefix,
-            quantizer,
         )
     }?;
 
     eprintln!("Quantizing..");
-    image.quantize();
+    let image = image.quantize();
 
     // Write tiles
     eprint!("Writing tiles..");
