@@ -14,10 +14,6 @@ class ProcessRequest {
     get var_prefix() {
         return "AA";
     }
-
-    get quantizer_quality() {
-        return 10;
-    }
 }
 
 async function init_wasm() {

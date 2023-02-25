@@ -8,9 +8,6 @@ extern "C" {
     pub type ProcessRequest;
 
     #[wasm_bindgen(method, getter)]
-    pub fn quantizer_quality(this: &ProcessRequest) -> i32;
-
-    #[wasm_bindgen(method, getter)]
     pub fn image_name(this: &ProcessRequest) -> String;
 
     #[wasm_bindgen(method, getter)]

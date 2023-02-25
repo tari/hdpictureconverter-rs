@@ -3,7 +3,6 @@ let worker_ready = false;
 const form = document.getElementById('inputsForm');
 const imageInput = document.getElementById('imageInput');
 const varPrefixInput = document.getElementById('varPrefixInput');
-const quantizerQualityInput = document.getElementById('quantizerQualityInput');
 const submit = document.getElementById('submitButton');
 
 const results = document.getElementById('results');
@@ -43,18 +42,10 @@ form.onsubmit = async (e) => {
 
     let file = imageInput.files[0];
     let image_data = await file.arrayBuffer();
-    // This slider is expressed as higher-is-better but the underlying
-    // quantizer uses lower-is-better so invert it
-    let quantizer_quality = (
-        Number.parseInt(quantizerQualityInput.max)
-        - quantizerQualityInput.valueAsNumber
-        + Number.parseInt(quantizerQualityInput.min)
-    );
     worker.postMessage({
         image_data: new Uint8Array(image_data),
         image_name: file.name,
         var_prefix: varPrefixInput.value,
-        quantizer_quality,
     });
     console.log('Sent', image_data.byteLength, 'bytes to process');
 };
