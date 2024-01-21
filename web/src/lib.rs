@@ -74,7 +74,7 @@ impl Converter {
         let zip_options = zip::write::FileOptions::default().last_modified_time(
             zip::DateTime::from_date_and_time(
                 now.get_full_year() as u16,
-                now.get_month() as u8,
+                now.get_month() + 1 as u8,
                 now.get_date() as u8,
                 now.get_hours() as u8,
                 now.get_minutes() as u8,
