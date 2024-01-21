@@ -102,7 +102,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Write palette
     eprint!("Writing palette.. ");
     {
-        let mut p = out_path(image.palette_appvar_name());
+        let mut p = out_path(&image.palette_appvar_name());
         p.set_extension("8xv");
         eprintln!("{:?}", &p);
 
