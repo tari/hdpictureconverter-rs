@@ -17,10 +17,10 @@ name = "cli"
 required-features = ["clap"]
 
 [dependencies]
-tifiles = "0.1"
 
 clap = { version = "4.0.18", optional = true }
 rgb = "0.8.34"
+tifiles = "0.2.0"
 zx0 = "1.0.0"
 
 [dependencies.image]
