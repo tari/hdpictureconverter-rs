@@ -80,7 +80,7 @@ impl Converter {
                 now.get_minutes() as u8,
                 now.get_seconds() as u8,
             )
-            .map_err(|e| format!("Now doesn't seem to be a valid time: {:?}", e))?,
+            .map_err(|e| format!("Now ({now:?}) doesn't seem to be a valid time: {e:?}"))?,
         );
 
         // Dump tiles to appvars
